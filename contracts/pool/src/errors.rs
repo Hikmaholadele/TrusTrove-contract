@@ -4,6 +4,7 @@ use soroban_sdk::contracterror;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PoolError {
     AlreadyInitialized = 1,
+    NotInitialized = 2,
     InvalidAmount = 4,
     InsufficientLiquidity = 5,
     NoShares = 6,
@@ -17,4 +18,18 @@ pub enum PoolError {
     InvalidConfiguration = 15,
     AlreadyFunded = 16,
     ActiveCountUnderflow = 17,
+    IssuerNotVerified = 18,
+    BuyerNotVerified = 19,
+    EscrowAssetMismatch = 20,
+    EscrowDefaultNotReleased = 21,
+    /// Protocol fee basis points exceed `MAX_PROTOCOL_FEE_BPS` (2000 bps = 20%).
+    FeeTooHigh = 22,
+    /// Transfer amount exceeds sender's share balance.
+    InsufficientBalance = 23,
+    /// `transfer_from` amount exceeds the remaining allowance (or the allowance
+    /// has expired, which reads back as `0`).
+    InsufficientAllowance = 24,
+    /// `approve` was given an `expiration_ledger` at or before the current
+    /// ledger sequence while also granting a non-zero amount.
+    InvalidExpiration = 25,
 }

@@ -282,24 +282,51 @@ Write-Host "`n=== Deploying USDC pool_contract ==="
 $poolUsdcId = Deploy-Contract "pool_usdc" "target/wasm32v1-none/release/trusttrove_pool.wasm"
 Write-Host "USDC Pool: $poolUsdcId"
 
-Invoke-Init "escrow_usdc" $escrowUsdcId @("--", "initialize", "--admin", $deployerAddress, "--pool_contract", $poolUsdcId, "--invoice_contract", $invoiceId, "--usdc_asset", $usdcIssuer)
+Invoke-Init "escrow_usdc" $escrowUsdcId @("--", "initialize", "--admin", $deployerAddress, "--pool_contract", $poolUsdcId, "--usdc_asset", $usdcIssuer)
 
-Invoke-Init "pool_usdc" $poolUsdcId @("--", "initialize", "--admin", $deployerAddress, "--invoice_contract", $invoiceId, "--escrow_contract", $escrowUsdcId, "--usdc_asset", $usdcIssuer)
+Invoke-Init "pool_usdc" $poolUsdcId @("--", "initialize", "--admin", $deployerAddress, "--invoice_contract", $invoiceId, "--escrow_contract", $escrowUsdcId, "--funding_asset", $usdcIssuer, "--registry_contract", $registryId, "--treasury", $deployerAddress, "--min_initial_deposit", "10000000", "--share_name", "`"TrusTrove USDC Pool Shares`"", "--share_symbol", "`"TT-USDC`"", "--share_decimals", "7")
 
-Write-Host "`n=== Deploying XLM escrow_contract ==="
+Write-Host "`n=== Deploying XLM escrow_contract (EXPERIMENTAL) ==="
 $escrowXlmId = Deploy-Contract "escrow_xlm" "target/wasm32v1-none/release/trusttrove_escrow.wasm"
 Write-Host "XLM Escrow: $escrowXlmId"
 
-Write-Host "`n=== Deploying XLM pool_contract ==="
+Write-Host "`n=== Deploying XLM pool_contract (EXPERIMENTAL) ==="
 $poolXlmId = Deploy-Contract "pool_xlm" "target/wasm32v1-none/release/trusttrove_pool.wasm"
 Write-Host "XLM Pool: $poolXlmId"
 
-Invoke-Init "escrow_xlm" $escrowXlmId @("--", "initialize", "--admin", $deployerAddress, "--pool_contract", $poolXlmId, "--invoice_contract", $invoiceId, "--usdc_asset", $xlmAsset)
+Invoke-Init "escrow_xlm" $escrowXlmId @("--", "initialize", "--admin", $deployerAddress, "--pool_contract", $poolXlmId, "--usdc_asset", $xlmAsset)
 
-Invoke-Init "pool_xlm" $poolXlmId @("--", "initialize", "--admin", $deployerAddress, "--invoice_contract", $invoiceId, "--escrow_contract", $escrowXlmId, "--usdc_asset", $xlmAsset)
+Invoke-Init "pool_xlm" $poolXlmId @("--", "initialize", "--admin", $deployerAddress, "--invoice_contract", $invoiceId, "--escrow_contract", $escrowXlmId, "--funding_asset", $xlmAsset, "--registry_contract", $registryId, "--treasury", $deployerAddress, "--min_initial_deposit", "10000000", "--share_name", "`"TrusTrove XLM Pool Shares`"", "--share_symbol", "`"TT-XLM`"", "--share_decimals", "7")
 
 Write-Host "`n=== Wiring USDC pool_contract into invoice_contract ==="
 Invoke-Init "invoice_set_pool" $invoiceId @("--", "set_pool_contract", "--pool_contract", $poolUsdcId)
+
+# Without the escrow wiring below, repay / repay_partial / repay_early panic
+# with InvoiceError::NotFound when reading DataKey::EscrowContract.
+Write-Host "`n=== Wiring USDC escrow_contract into invoice_contract ==="
+Invoke-Init "invoice_set_escrow" $invoiceId @("--", "set_escrow_contract", "--escrow_contract", $escrowUsdcId)
+
+# Without allow-listing, create rejects every invoice with UnsupportedAsset.
+# add_supported_asset is itself idempotent on-chain (a no-op for an asset
+# that is already allow-listed).
+Write-Host "`n=== Allow-listing USDC as a supported funding asset ==="
+Invoke-Init "invoice_add_asset_usdc" $invoiceId @("--", "add_supported_asset", "--asset", $usdcIssuer)
+
+Write-Host "`n=== Allow-listing XLM as a supported funding asset (EXPERIMENTAL) ==="
+Invoke-Init "invoice_add_asset_xlm" $invoiceId @("--", "add_supported_asset", "--asset", $xlmAsset)
+
+# Agent-registry wiring is optional: it is only performed when
+# AGENT_REGISTRY_CONTRACT is set in .env / .env.example.  Without it,
+# submit_attestation panics with InvoiceError::NotFound and
+# list_for_financing can never unlock.
+$agentRegistryContract = [Environment]::GetEnvironmentVariable('AGENT_REGISTRY_CONTRACT')
+if ($agentRegistryContract) {
+    Write-Host "`n=== Wiring agent_registry_contract into invoice_contract ==="
+    Invoke-Init "invoice_set_agent_registry" $invoiceId @("--", "set_agent_registry_contract", "--agent_registry_contract", $agentRegistryContract)
+} else {
+    Write-Host "`n=== AGENT_REGISTRY_CONTRACT is not set — skipping agent-registry wiring ==="
+    Write-Host "    submit_attestation will fail until it is wired (see DEPLOYMENT.md)."
+}
 
 # ---------------------------------------------------------------------------
 # 8. Persist final addresses
@@ -317,9 +344,9 @@ $timestamp = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
 NEXT_PUBLIC_REGISTRY_CONTRACT_ID=$registryId
 NEXT_PUBLIC_INVOICE_CONTRACT_ID=$invoiceId
 NEXT_PUBLIC_ESCROW_USDC_CONTRACT_ID=$escrowUsdcId
-NEXT_PUBLIC_ESCROW_XLM_CONTRACT_ID=$escrowXlmId
+NEXT_PUBLIC_ESCROW_XLM_CONTRACT_ID=$escrowXlmId # EXPERIMENTAL
 NEXT_PUBLIC_POOL_USDC_CONTRACT_ID=$poolUsdcId
-NEXT_PUBLIC_POOL_XLM_CONTRACT_ID=$poolXlmId
+NEXT_PUBLIC_POOL_XLM_CONTRACT_ID=$poolXlmId # EXPERIMENTAL
 "@ | Set-Content $envOut
 
 Write-Host "`n==========================================="

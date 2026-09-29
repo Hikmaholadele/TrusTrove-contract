@@ -36,7 +36,48 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                 },
                 {
-                  "map": []
+                  "map": [
+                    {
+                      "key": {
+                        "string": "LG_NU7T_h9"
+                      },
+                      "val": {
+                        "string": "8____V30Mplzyq_W0"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "W_"
+                      },
+                      "val": {
+                        "string": "n3BK6_UK21338__0U_"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "YyZW0_"
+                      },
+                      "val": {
+                        "string": "dw"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "_7Um"
+                      },
+                      "val": {
+                        "string": "_8_G3da_j"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "b51UL"
+                      },
+                      "val": {
+                        "string": "5wtU8_wjEbU3C_Ey"
+                      }
+                    }
+                  ]
                 }
               ]
             }
@@ -97,18 +138,51 @@
                   "map": [
                     {
                       "key": {
-                        "symbol": "address"
-                      },
-                      "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
-                      }
-                    },
-                    {
-                      "key": {
                         "symbol": "metadata"
                       },
                       "val": {
-                        "map": []
+                        "map": [
+                          {
+                            "key": {
+                              "string": "LG_NU7T_h9"
+                            },
+                            "val": {
+                              "string": "8____V30Mplzyq_W0"
+                            }
+                          },
+                          {
+                            "key": {
+                              "string": "W_"
+                            },
+                            "val": {
+                              "string": "n3BK6_UK21338__0U_"
+                            }
+                          },
+                          {
+                            "key": {
+                              "string": "YyZW0_"
+                            },
+                            "val": {
+                              "string": "dw"
+                            }
+                          },
+                          {
+                            "key": {
+                              "string": "_7Um"
+                            },
+                            "val": {
+                              "string": "_8_G3da_j"
+                            }
+                          },
+                          {
+                            "key": {
+                              "string": "b51UL"
+                            },
+                            "val": {
+                              "string": "5wtU8_wjEbU3C_Ey"
+                            }
+                          }
+                        ]
                       }
                     },
                     {
@@ -116,7 +190,7 @@
                         "symbol": "packed_flags"
                       },
                       "val": {
-                        "u32": 2
+                        "u32": 0
                       }
                     },
                     {
@@ -133,7 +207,7 @@
             },
             "ext": "v0"
           },
-          4095
+          2000000
         ]
       ],
       [
@@ -178,7 +252,7 @@
             },
             "ext": "v0"
           },
-          4095
+          2000000
         ]
       ],
       [
@@ -265,7 +339,7 @@
             },
             "ext": "v0"
           },
-          4095
+          2000000
         ]
       ]
     ]
@@ -292,6 +366,27 @@
             "data": {
               "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
             }
+          }
+        }
+      },
+      "failed_call": false
+    },
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "contract_initialized"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+              }
+            ],
+            "data": "void"
           }
         }
       },
@@ -342,7 +437,48 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
                 },
                 {
-                  "map": []
+                  "map": [
+                    {
+                      "key": {
+                        "string": "LG_NU7T_h9"
+                      },
+                      "val": {
+                        "string": "8____V30Mplzyq_W0"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "W_"
+                      },
+                      "val": {
+                        "string": "n3BK6_UK21338__0U_"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "YyZW0_"
+                      },
+                      "val": {
+                        "string": "dw"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "_7Um"
+                      },
+                      "val": {
+                        "string": "_8_G3da_j"
+                      }
+                    },
+                    {
+                      "key": {
+                        "string": "b51UL"
+                      },
+                      "val": {
+                        "string": "5wtU8_wjEbU3C_Ey"
+                      }
+                    }
+                  ]
                 }
               ]
             }
@@ -437,7 +573,7 @@
               }
             ],
             "data": {
-              "bool": true
+              "bool": false
             }
           }
         }
@@ -488,7 +624,7 @@
             "data": {
               "vec": [
                 {
-                  "symbol": "Verified"
+                  "symbol": "Pending"
                 }
               ]
             }

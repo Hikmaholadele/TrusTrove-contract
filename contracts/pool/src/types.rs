@@ -30,6 +30,10 @@ pub struct PoolStats {
     /// Cumulative USDC (in stroops) of yield that has been distributed to
     /// the pool from repaid invoices over the pool's lifetime.
     pub total_yield_distributed: u128,
+    /// Cumulative USDC principal (in stroops) written off when funded
+    /// invoices default. This is lifetime accounting and is not reduced by
+    /// later deposits.
+    pub total_loss_realised: u128,
     /// Number of invoices currently funded and awaiting repayment.
     pub active_invoice_count: u32,
     /// Total supply of LP shares outstanding. Individual LP ownership of
@@ -60,16 +64,30 @@ pub struct LPPosition {
     pub deposit_count: u32,
 }
 
+/// SEP-41 share allowance granted by an LP to a spender.
 #[contracttype]
+#[derive(Clone, Debug)]
+pub struct ShareAllowance {
+    /// Number of shares the spender may still move, stored as `i128` because
+    /// SEP-41's `approve`/`allowance` interface is signed. Never negative.
+    pub amount: i128,
+    /// Last ledger sequence at which this grant is still live. Reads at or
+    /// above this sequence see `amount`; later sequences see `0`.
+    pub expiration_ledger: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug)]
 pub enum DataKey {
     Admin,
     InvoiceContract,
     EscrowContract,
-    UsdcAsset,
+    FundingAsset,
     TotalShares,
     TotalDeposits,
     TotalFunded,
     TotalYieldDistributed,
+    TotalLossRealised,
     ActiveInvoiceCount,
     LPShares(Address),
     LPDepositCount(Address),
@@ -77,4 +95,31 @@ pub enum DataKey {
     LPInitialDeposit(Address),
     FundedInvoice(BytesN<32>),
     MaxUtilizationBps,
+    // RegistryContract intentionally last to avoid changing enum discriminants
+    // for already-deployed contract storage keys. New variants must keep
+    // being appended after it, in the same spirit, rather than inserted
+    // earlier.
+    RegistryContract,
+    /// Stored protocol fee basis points (defaults to 0 bps).
+    ProtocolFeeBps,
+    /// Stored treasury destination address (defaults to admin).
+    TreasuryAddress,
+    /// Admin-configured minimum initial deposit floor for this instance, set
+    /// at `initialize` time. See `DEFAULT_MIN_INITIAL_DEPOSIT` for the
+    /// fallback used by pre-migration instances.
+    MinInitialDeposit,
+    /// SEP-41 allowance from one LP to a spender, holding a `ShareAllowance`.
+    /// Persistent (not instance) storage: an allowance is per-address-pair
+    /// state like `LPShares`, not config that belongs on the instance
+    /// footprint.
+    Allowance(Address, Address),
+    /// SEP-41 `name()` of this instance's share token, written at `initialize`.
+    ShareName,
+    /// SEP-41 `symbol()` of this instance's share token, written at `initialize`.
+    ShareSymbol,
+    /// SEP-41 `decimals()` of this instance's share token, written at
+    /// `initialize`. Per-instance rather than a constant because
+    /// `docs/SEP41_DESIGN.md` requires shares to carry the funding asset's
+    /// decimals, and under the factory model each instance has its own.
+    ShareDecimals,
 }

@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN};
+use soroban_sdk::{contracttype, Address, BytesN, Symbol};
 
 #[contracttype]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -78,6 +78,10 @@ pub struct Invoice {
     /// came from a pool rather than a direct funder. `None` for
     /// direct-funded invoices.
     pub funding_pool: Option<Address>,
+    /// Cumulative amount repaid so far by the buyer, in USDC stroops.
+    pub repaid_amount: u128,
+    /// Remaining balance left to be repaid, in USDC stroops.
+    pub remaining_balance: u128,
 }
 
 #[contracttype]
@@ -95,6 +99,76 @@ pub enum DataKey {
     BuyerIndexEntry(Address, u32),
     StatusIndexEntry(u32, u32),
     ExpiryWindow,
+    SupportedAsset(Address),
+    SupportedAssetCount,
+    // EscrowContract intentionally last to avoid changing enum discriminants for
+    // already-deployed contract storage keys. New variants must keep being
+    // appended after it, in the same spirit, rather than inserted earlier.
+    EscrowContract,
+    // Address of the agent-registry contract (deployed separately from the
+    // underwrite-contract repo) that `submit_attestation` consults to check
+    // an attesting agent's signing key.
+    AgentRegistryContract,
+    // Attestation recorded against a given invoice, keyed by invoice id.
+    Attestation(BytesN<32>),
+}
+
+/// A risk attestation recorded against an invoice by a registered
+/// Underwrite agent, gating `list_for_financing`.
+///
+/// Written once by [`InvoiceContract::submit_attestation`] and never
+/// updated — the presence check itself is the replay guard, so an invoice
+/// can only ever carry a single attestation.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Attestation {
+    /// Identifier of the attesting agent, as registered in the
+    /// agent-registry contract.
+    pub agent_id: Symbol,
+    /// Risk score in basis points (0-10000). Never a float — same
+    /// fixed-point convention as [`Invoice::discount_bps`].
+    pub risk_score: u32,
+    /// Hash of the off-chain evidence backing this attestation (e.g. the
+    /// underwriting report), for later off-chain verification.
+    pub evidence_hash: BytesN<32>,
+    /// Unix timestamp (seconds) at which the attestation was submitted.
+    pub submitted_at: u64,
+}
+
+/// The signed payload an Underwrite agent produces off-chain and submits
+/// via [`InvoiceContract::submit_attestation`].
+///
+/// Decoded from the raw `payload: Bytes` argument via
+/// [`soroban_sdk::xdr::FromXdr`], and the *same* raw bytes are what get
+/// keccak256-hashed and checked against `signature`. The field order here
+/// therefore doubles as the wire format agents must sign over.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct AttestationPayload {
+    /// Domain separator binding this signature to TrusTrove attestations
+    /// specifically, so a signature can't be replayed against an unrelated
+    /// contract or message scheme.
+    pub domain_separator: BytesN<32>,
+    /// The invoice this attestation is for. Must match the `invoice_id`
+    /// argument passed to `submit_attestation`.
+    pub invoice_id: BytesN<32>,
+    pub risk_score: u32,
+    pub evidence_hash: BytesN<32>,
+    pub agent_id: Symbol,
+    /// Caller-chosen nonce. Not separately tracked on-chain: the
+    /// one-attestation-per-invoice storage check is the replay guard.
+    pub nonce: u64,
+}
+
+/// Local mirror of the `Agent` record exposed by the agent-registry
+/// contract (from the separate `underwrite-contract` repo). This contract
+/// has no crate dependency on that repo, so this shape must be kept in
+/// sync with its `get_agent` return type by hand.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct Agent {
+    pub active: bool,
+    pub pubkey: BytesN<65>,
 }
 
 impl InvoiceStatus {

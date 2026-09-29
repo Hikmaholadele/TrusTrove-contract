@@ -11,6 +11,7 @@ pub enum Role {
 #[derive(Clone, Debug, PartialEq)]
 pub enum VerificationStatus {
     Unregistered,
+    Pending,
     Verified,
     Revoked,
 }
@@ -18,7 +19,6 @@ pub enum VerificationStatus {
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct Profile {
-    pub address: Address,
     pub packed_flags: u32,
     pub registered_at: u64,
     pub metadata: Map<String, String>,
@@ -26,7 +26,6 @@ pub struct Profile {
 
 impl Profile {
     pub fn new(
-        address: Address,
         role: Role,
         verified: bool,
         registered_at: u64,
@@ -40,7 +39,6 @@ impl Profile {
             packed_flags |= 2;
         }
         Profile {
-            address,
             packed_flags,
             registered_at,
             metadata,
@@ -64,6 +62,18 @@ impl Profile {
             self.packed_flags |= 2;
         } else {
             self.packed_flags &= !2;
+        }
+    }
+
+    pub fn revoked(&self) -> bool {
+        (self.packed_flags & 4) != 0
+    }
+
+    pub fn set_revoked(&mut self, revoked: bool) {
+        if revoked {
+            self.packed_flags |= 4;
+        } else {
+            self.packed_flags &= !4;
         }
     }
 }

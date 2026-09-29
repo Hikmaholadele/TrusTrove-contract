@@ -1,27 +1,40 @@
+Closes #179
+
 ## Summary
 
-Implements the missing `contract_initialized` event emission from the `initialize()` function as requested in issue #204.
+Adds `extend_ttl` calls to the three registry read functions that were reading
+persistent/instance storage without renewing the TTL of the entries they read.
+The threshold (100) and target duration (2_000_000) match the corresponding
+write paths exactly.
 
 ## Changes
 
-### contracts/invoice/src/events.rs
-- Added `contract_initialized(env: &Env, admin: &Address, registry_contract: &Address)` event function that emits a `contract_initialized` event with admin and registry contract addresses as topics.
+### `get_profile(env, address) -> Profile`
+- Reads `DataKey::Profile(address)` from persistent storage
+- Calls `persistent().extend_ttl(&key, 100, 2_000_000)` using the same TTL
+  policy as `register_issuer`, `register_buyer`, etc.
+- Preserves the `RegistryError::NotFound` panic for missing entries
 
-### contracts/invoice/src/lib.rs
-- Modified `initialize()` function to emit `events::contract_initialized(&env, &admin, &registry_contract)` after successful initialization.
+### `is_verified(env, address) -> bool`
+- Restructured from `.map().unwrap_or()` to a `match` on `Option<Profile>`
+- Calls `persistent().extend_ttl(&key, 100, 2_000_000)` only when the entry
+  exists (no extra `.has()` lookup needed)
+- Returns `false` for missing entries as before — no behavioral change
 
-### contracts/invoice/src/test.rs
-- Added `test_initialize_emits_contract_initialized_event`: Happy-path test verifying the event is emitted with correct topics (admin, registry_contract) and empty data.
-- Added `test_initialize_fails_when_already_initialized`: Negative test verifying re-initialization panics with `AlreadyInitialized` error.
-- Updated `test_create_succeeds_when_due_date_one_second_in_future` to expect 2 events (contract_initialized + invoice_created).
-- Updated `test_set_pool_contract_emits_event` and `test_set_expiry_window_emits_event` to check only the last event since setup() now emits contract_initialized.
+### `get_admin(env) -> Address`
+- Reads `DataKey::Admin` from instance storage
+- Calls `instance().extend_ttl(100, 2_000_000)` matching `initialize()`,
+  `transfer_ownership()`, etc.
+- Preserves the `RegistryError::NotFound` panic for uninitialized contracts
 
-## Testing
+### Tests
+4 new regression tests verify TTL is actually bumped after each read:
+- `test_get_profile_extends_ttl` — drains TTL below 100, reads, asserts bump
+- `test_is_verified_extends_ttl` — same pattern for `is_verified`
+- `test_get_admin_extends_instance_ttl` — same pattern for instance TTL
+- `test_is_verified_does_not_extend_ttl_for_unknown` — negative test
 
-All checks pass:
-- ✅ `cargo test -p trusttrove-invoice` (75 tests pass)
-- ✅ `cargo fmt --all --check`
-- ✅ `cargo clippy --all-targets -- -D warnings`
-- ✅ No behaviour regression in existing tests
-
-Closes #204
+## Storage Efficiency
+- No redundant reads: each function reads the entry exactly once
+- `is_verified` uses the already-fetched `Option` to gate TTL extension
+- No write operations added — only TTL extension
