@@ -5331,3 +5331,207 @@ fn prop_multi_lp_share_supply_conserved_across_op_sequences() {
         rejected
     );
 }
+
+// ============== ISSUE #873: STANDARD SEP-41 transfer ENTRY POINT =============
+//
+// The share-token surface was missing the standard `transfer(from, to, amount)`
+// entry point (a prior duplicate-definition collision removed it alongside the
+// `transfer_shares` logic it clashed with, leaving `move_shares` orphaned from
+// a public caller). These tests pin the SEP-41 behavior on the restored
+// function — most importantly that a generic `soroban_sdk::token::Client`
+// can drive it with no pool-specific wrapper.
+
+/// The required generic-client test: any SEP-41 consumer must be able to move
+/// shares with a plain `soroban_sdk::token::Client` pointed at the pool
+/// address, with no pool-specific client in sight.
+#[test]
+fn test_sep41_generic_token_client_transfer_moves_shares() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+
+    // The generic SEP-41 client, constructed from the pool address alone.
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&te.lp, &recipient, &5_000_000_000);
+
+    assert_eq!(
+        te.pool.get_lp_position(&te.lp).shares,
+        5_000_000_000,
+        "sender's shares must be debited"
+    );
+    assert_eq!(
+        te.pool.get_lp_position(&recipient).shares,
+        5_000_000_000,
+        "recipient's shares must be credited"
+    );
+    // Total share supply is unaffected by a transfer.
+    assert_eq!(te.pool.get_stats().total_shares, 10_000_000_000);
+}
+
+/// `transfer` must credit a recipient who has never interacted with the pool.
+#[test]
+fn test_transfer_to_recipient_without_position_creates_one() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    te.pool.transfer(&te.lp, &recipient, &2_500_000_000);
+
+    let lp_position = te.pool.get_lp_position(&te.lp);
+    assert_eq!(lp_position.shares, 7_500_000_000);
+    assert_eq!(te.pool.get_lp_position(&recipient).shares, 2_500_000_000);
+}
+
+/// The generic client's transfer must enforce `from`'s authorization: with no
+/// signatures provided, the host rejects the transaction.
+#[test]
+#[should_panic(expected = "Error(Auth, InvalidAction)")]
+fn test_sep41_generic_token_client_transfer_requires_from_auth() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+
+    // Clear all mocked auths so from.require_auth() fails.
+    te.env.set_auths(&[]);
+    shares_token.transfer(&te.lp, &recipient, &1_000_000_000);
+}
+
+/// Balance checks must hold on the standard path: transferring more shares
+/// than `from` owns panics with `InsufficientBalance`.
+#[test]
+#[should_panic(expected = "Error(Contract, #23)")]
+fn test_transfer_insufficient_balance_panics_via_generic_client() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&te.lp, &recipient, &20_000_000_000);
+}
+
+/// A sender with no share position at all panics with `NoShares`.
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn test_transfer_from_address_without_shares_panics() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let stranger = Address::generate(&te.env);
+    let recipient = Address::generate(&te.env);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&stranger, &recipient, &1);
+}
+
+/// Zero and negative amounts are rejected on the standard entry point.
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")]
+fn test_transfer_zero_amount_panics_via_generic_client() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&te.lp, &recipient, &0);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")]
+fn test_transfer_negative_amount_panics_via_generic_client() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&te.lp, &recipient, &-5);
+}
+
+/// Both SEP-41 entry points emit the standard `transfer(from, to, amount)`
+/// event shape, so generic indexers can watch share movements.
+#[test]
+fn test_transfer_and_transfer_from_emit_standard_transfer_event() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    let spender = Address::generate(&te.env);
+    let expires = te.env.ledger().sequence() + 100;
+
+    let before = te.env.events().all().len();
+    te.pool.transfer(&te.lp, &recipient, &1_000_000_000);
+    let events = te.env.events().all();
+    assert_eq!(events.len(), before + 1);
+    let (contract, topics, data) = events.get(events.len() - 1).unwrap();
+    assert_eq!(contract, te.pool_id);
+    assert_eq!(topics.len(), 2);
+    assert_eq!(
+        Symbol::try_from_val(&te.env, &topics.get(0).unwrap()).unwrap(),
+        Symbol::new(&te.env, "transfer")
+    );
+    assert_eq!(
+        Address::try_from_val(&te.env, &topics.get(1).unwrap()).unwrap(),
+        te.lp
+    );
+    assert_eq!(
+        <(Address, i128)>::try_from_val(&te.env, &data).unwrap(),
+        (recipient.clone(), 1_000_000_000)
+    );
+
+    // The allowance path emits the identical standard event shape (approve
+    // itself emits `allowance_approved`, hence the +2).
+    let before = te.env.events().all().len();
+    te.pool.approve(&te.lp, &spender, &2_000_000_000, &expires);
+    te.pool
+        .transfer_from(&spender, &te.lp, &recipient, &2_000_000_000);
+    let events = te.env.events().all();
+    let (contract, topics, data) = events.get(events.len() - 1).unwrap();
+    assert_eq!(events.len(), before + 2);
+    assert_eq!(contract, te.pool_id);
+    assert_eq!(
+        Symbol::try_from_val(&te.env, &topics.get(0).unwrap()).unwrap(),
+        Symbol::new(&te.env, "transfer")
+    );
+    assert_eq!(
+        <(Address, i128)>::try_from_val(&te.env, &data).unwrap(),
+        (recipient.clone(), 2_000_000_000)
+    );
+}
+
+/// `transfer` and `transfer_shares` must be interchangeable: both entry
+/// points move shares identically (transfer_shares is the documented
+/// non-standard legacy alias).
+#[test]
+fn test_transfer_matches_legacy_transfer_shares() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let recipient = Address::generate(&te.env);
+    te.pool.transfer_shares(&te.lp, &recipient, &5_000_000_000);
+
+    let second_recipient = Address::generate(&te.env);
+    te.pool.transfer(&te.lp, &second_recipient, &5_000_000_000);
+
+    assert_eq!(te.pool.get_lp_position(&recipient).shares, 5_000_000_000);
+    assert_eq!(
+        te.pool.get_lp_position(&second_recipient).shares,
+        5_000_000_000
+    );
+    assert_eq!(te.pool.get_lp_position(&te.lp).shares, 0);
+}
+
+/// Self-transfers remain a no-op on the standard entry point.
+#[test]
+fn test_transfer_same_address_no_op_via_generic_client() {
+    let te = setup();
+    te.pool.deposit(&te.lp, &10_000_000_000);
+
+    let before = te.pool.get_lp_position(&te.lp);
+    let shares_token = soroban_sdk::token::Client::new(&te.env, &te.pool_id);
+    shares_token.transfer(&te.lp, &te.lp, &5_000_000_000);
+    let after = te.pool.get_lp_position(&te.lp);
+
+    assert_eq!(before.shares, after.shares);
+    assert_eq!(te.pool.get_stats().total_shares, 10_000_000_000);
+}
