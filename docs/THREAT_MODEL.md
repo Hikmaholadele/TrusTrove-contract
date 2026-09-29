@@ -1,6 +1,6 @@
 # Threat Model
 
-> **Updated:** 2025-07-25
+> **Updated:** 2026-09-29
 > **Applies to:** All four Soroban smart contracts (registry, invoice, escrow, pool)
 
 This document describes the trust assumptions, authentication gates, and
@@ -76,7 +76,7 @@ The caller authenticates only themselves. No admin or third party is involved.
 | `mark_shipped` | Invoice | The issuer |
 | `confirm_delivery` | Invoice | The confirmer (issuer _or_ buyer) |
 | `repay` | Invoice | The buyer |
-| `check_auth` | Invoice | The supplied address |
+| `expire_listing` | Invoice | The caller (stored issuer _or_ admin) |
 | `deposit` | Pool | The LP |
 | `withdraw` | Pool | The LP |
 
@@ -92,7 +92,6 @@ Only the stored admin address may call this function.
 | `set_pool_contract` | Invoice | Wiring a new pool changes fund flows |
 | `trigger_default` | Invoice | Declaring a default is a state change with fund consequences |
 | `set_expiry_window` | Invoice | Configuration parameter |
-| `expire_listing` | Invoice | Admin fallback path |
 | `fund_invoice` | Pool | (*currently*) Capital allocation from pool |
 | `set_max_utilization` | Pool | Risk parameter |
 | `transfer_ownership` | All | Changes the admin key |
@@ -130,7 +129,6 @@ Any account can call these.
 | `get`, `get_status`, `get_face_value`, `get_discount_bps`, `get_funding_asset`, `get_issuer`, `get_by_status`, `get_by_issuer`, `get_by_buyer`, `get_counts`, `get_expiry_window` | Invoice | Read-only views |
 | `get_locked`, `get_history` | Escrow | Read-only views |
 | `get_stats`, `get_lp_position`, `get_utilization_rate`, `get_usdc_asset` | Pool | Read-only views |
-| `expire_listing` | Invoice | Also callable by issuer (Pattern A) |
 
 ---
 
