@@ -5,6 +5,9 @@ members = [
     "contracts/invoice",
     "contracts/escrow",
     "contracts/pool",
+    "contracts/pool_factory",
+    "contracts/ttl",
+    "tests/integration",
 ]
 
 [workspace.package]
@@ -16,6 +19,12 @@ repository = "https://github.com/TrusTrove/TrusTrove-contract"
 
 [workspace.dependencies]
 soroban-sdk = { version = "21.7.6" }
+proptest = "1.0.0"
+trusttrove-registry = { path = "contracts/registry" }
+trusttrove-invoice = { path = "contracts/invoice" }
+trusttrove-escrow = { path = "contracts/escrow" }
+trusttrove-pool = { path = "contracts/pool" }
+trusttrove-pool-factory = { path = "contracts/pool_factory" }
 
 [profile.release]
 opt-level = "z"

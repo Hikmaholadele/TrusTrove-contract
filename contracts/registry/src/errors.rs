@@ -9,4 +9,5 @@ pub enum RegistryError {
     NotInitialized = 4,
     BatchSizeExceeded = 5,
     InvalidMetadata = 6,
+    NotRegistered = 7,
 }

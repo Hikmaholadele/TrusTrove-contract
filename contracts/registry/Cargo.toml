@@ -11,10 +11,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }
+trusttrove-ttl = { path = "../ttl" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-proptest = "1.0.0"
+proptest = { workspace = true }
 
 [features]
 testutils = ["soroban-sdk/testutils"]

@@ -11,13 +11,19 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }
+trusttrove-ttl = { path = "../ttl" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 trusttrove-registry = { path = "../registry" }
 trusttrove-escrow = { path = "../escrow" }
 trusttrove-pool = { path = "../pool" }
-proptest = "1.0.0"
+proptest = "1"
+# Test-only: signs attestation payloads with a real secp256k1 key so
+# submit_attestation's signature-recovery path is exercised for real,
+# rather than mocked out. Version pinned to what soroban-env-host already
+# resolves (see Cargo.lock) so it doesn't pull in a second copy.
+k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
 
 [features]
 testutils = ["soroban-sdk/testutils"]
